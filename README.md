@@ -1,6 +1,6 @@
 # skillsauth
 
-Install verified AI agent skills from the [SkillsAI](https://skillsauth.com) marketplace.
+Install verified AI agent skills from the [SkillsAuth](https://skillsauth.com) marketplace.
 
 ## Installation
 
