@@ -1,0 +1,15 @@
+# Source and config — only dist/ and README.md are published (see package.json "files")
+src/
+tsconfig.json
+*.ts
+!*.d.ts
+
+# Tests and dev
+*.test.ts
+*.spec.ts
+.env
+.env.*
+node_modules/
+
+# Monorepo
+../../
