@@ -44,7 +44,7 @@ export async function addCommand(
   let skills: CLISkill[];
   try {
     if (specificSkill) {
-      const slug = `${owner}-${repo}-${specificSkill}`
+      const slug = `${owner}-${specificSkill}`
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');

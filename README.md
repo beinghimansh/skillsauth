@@ -168,13 +168,13 @@ skillsauth update --global
 
 ### `skillsauth remove` / `uninstall` / `rm`
 
-Removes by **slug** from `installed` (e.g. `anthropics-skills-skills-skill-creator`), not by repo path.
+Removes by **slug** from `installed` (the short marketplace id, e.g. `anthropics-skill-creator` for `anthropics/skills` + `skill-creator`), not by repo path. Copy the slug from `skillsauth installed` or `list` if unsure.
 
 ```bash
 skillsauth installed   # copy the slug column from output
 
-skillsauth remove anthropics-skills-skills-skill-creator
-skillsauth rm anthropics-skills-skills-skill-creator --yes
+skillsauth remove anthropics-skill-creator
+skillsauth rm anthropics-skill-creator --yes
 skillsauth remove your-skill-slug --global --yes
 ```
 
