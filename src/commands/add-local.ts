@@ -206,6 +206,7 @@ export async function addLocalCommand(localPath: string, opts: AddLocalOptions):
       stars: 0,
       scanStatus: 'clean',
       scannedAt: null,
+      bundleHash: null,
       files,
     };
 

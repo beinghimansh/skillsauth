@@ -25,6 +25,7 @@ const fakeSkill: CLISkill = {
   stars: 0,
   scanStatus: 'clean',
   scannedAt: null,
+  bundleHash: null,
   files: [
     { path: 'SKILL.md', content: '# Test\nHello world' },
     { path: 'scripts/run.sh', content: '#!/bin/bash\necho hello' },

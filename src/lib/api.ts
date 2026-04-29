@@ -1,4 +1,5 @@
 import { API_BASE_URL, DEBUG, NO_ANALYTICS } from '../utils/constants.js';
+import type { CRLResponse } from '@skillsai/crypto-sign';
 import type { CLISkill, RepoResponse, SearchResponse } from '../types.js';
 
 export class APIError extends Error {
@@ -51,6 +52,55 @@ export async function fetchSkill(owner: string, repo: string, slug: string): Pro
 
 export async function searchSkills(query: string, limit = 10): Promise<SearchResponse> {
   return apiFetch<SearchResponse>(`/search?${new URLSearchParams({ q: query, limit: String(limit) })}`);
+}
+
+export interface ManifestResponse {
+  fqn: string;
+  version: string;
+  bundle: string;
+  manifestDigest: string | null;
+  manifestSignedAt: string | null;
+  rekorLogIndex: number | null;
+}
+
+let crlCache: CRLResponse | null = null;
+
+export async function fetchManifest(slug: string): Promise<ManifestResponse | null> {
+  // API_BASE_URL = https://skillsauth.com/api/cli — strip the /api/cli suffix for the manifest endpoint
+  const origin = API_BASE_URL.replace(/\/api\/cli\/?$/, '');
+  const url = `${origin}/api/skills/${slug}/manifest`;
+  if (DEBUG) console.error(`[debug] GET ${url}`);
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'skillsauth-cli/3.0.1' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.status === 404 || res.status === 409) return null;
+    if (!res.ok) return null;
+    return res.json() as Promise<ManifestResponse>;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchCRL(): Promise<CRLResponse | null> {
+  if (crlCache) return crlCache;
+
+  const origin = API_BASE_URL.replace(/\/api\/cli\/?$/, '');
+  const url = `${origin}/api/crl`;
+  if (DEBUG) console.error(`[debug] GET ${url}`);
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'skillsauth-cli/3.0.1' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    crlCache = (await res.json()) as CRLResponse;
+    return crlCache;
+  } catch {
+    return null;
+  }
 }
 
 export function recordDownload(skillId: string, agentType: string): void {

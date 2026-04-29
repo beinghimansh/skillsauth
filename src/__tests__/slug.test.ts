@@ -22,12 +22,17 @@ describe('isSafeSkillSlug', () => {
     expect(isSafeSkillSlug('  ')).toBe(false);
   });
 
+  it('accepts hierarchical owner/skill (two URL segments, lowercase + hyphens)', () => {
+    expect(isSafeSkillSlug('anthropics/skill-creator')).toBe(true);
+    expect(isSafeSkillSlug('a/b')).toBe(true);
+  });
+
   it('rejects slugs with special characters', () => {
     expect(isSafeSkillSlug('my_skill')).toBe(false);
     expect(isSafeSkillSlug('My-Skill')).toBe(false);
     expect(isSafeSkillSlug('/absolute')).toBe(false);
-    expect(isSafeSkillSlug('a/b')).toBe(false);
     expect(isSafeSkillSlug('skill@latest')).toBe(false);
+    expect(isSafeSkillSlug('a/b/c')).toBe(false);
   });
 
   it('rejects leading/trailing hyphens', () => {

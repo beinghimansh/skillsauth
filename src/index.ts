@@ -38,6 +38,8 @@ const addCmd = new Command('add')
   .option('--agent <agents...>', 'Target specific agent(s)')
   .option('--all', 'Install all skills without prompting')
   .option('--json', 'Output results as JSON')
+  .option('--trust-unsigned', 'Allow installing skills without a cryptographic signature (with warning)')
+  .option('--skip-rekor', 'Skip Rekor transparency log check (offline verify only)')
   .action((source: string, skillArgs: string[], opts) => {
     const isLocal = source.startsWith('.') || source.startsWith('/') || source.startsWith('\\') || existsSync(source);
     if (isLocal) {

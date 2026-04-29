@@ -1,13 +1,26 @@
 import * as p from '@clack/prompts';
 import chalk from 'chalk';
-import { fetchRepo, fetchSkill, recordDownload, APIError } from '../lib/api.js';
+import cryptoSign from '@skillsai/crypto-sign';
+import { fetchRepo, fetchSkill, fetchManifest, fetchCRL, recordDownload, APIError } from '../lib/api.js';
 import { detectAgents } from '../lib/agents.js';
 import { installSkill } from '../lib/installer.js';
 import { addSkillToLockfile } from '../lib/lockfile.js';
 import { printScanBadge, printError, separator } from '../utils/display.js';
-import { SKIP_PROMPTS, LOCAL_LOCK, GLOBAL_LOCK } from '../utils/constants.js';
+import { API_BASE_URL, SKIP_PROMPTS, LOCAL_LOCK, GLOBAL_LOCK } from '../utils/constants.js';
 import type { CLISkill, AgentType, InstallScope } from '../types.js';
 import { AGENT_IDS } from '../types.js';
+
+const { verifyWithCRL } = cryptoSign as {
+  verifyWithCRL: (
+    bundleJson: string,
+    localBundleHash: string,
+    crlUrl: string,
+    cachedCRL?: { version: number; revokedDigests: string[]; issuedAt: string }
+  ) => Promise<
+    | { ok: true; rekorLogIndex: number | null; warning?: string }
+    | { ok: false; reason: string; detail?: string }
+  >;
+};
 
 export interface AddOptions {
   global?: boolean;
@@ -16,6 +29,29 @@ export interface AddOptions {
   agent?: string[];
   all?: boolean;
   json?: boolean;
+  trustUnsigned?: boolean;
+  skipRekor?: boolean;
+}
+
+function mapVerifyFailureReason(reason: string): string {
+  switch (reason) {
+    case 'revoked':
+      return 'This manifest has been revoked. It cannot be installed.';
+    case 'bundle_hash_mismatch':
+      return 'Bundle hash mismatch. Possible CDN or storage tampering.';
+    case 'cert_chain_invalid':
+      return 'Certificate chain invalid.';
+    case 'rekor_inclusion_fail':
+      return 'Transparency log inclusion failed.';
+    case 'schema_invalid':
+      return 'Manifest payload schema is invalid.';
+    case 'malformed':
+      return 'Manifest bundle is malformed and cannot be parsed.';
+    case 'invalid_sig':
+      return 'Signature verification failed.';
+    default:
+      return `Verification failed: ${reason}`;
+  }
 }
 
 export async function addCommand(
@@ -184,6 +220,33 @@ export async function addCommand(
   console.log('');
   for (const skill of selectedSkills) {
     const full = await fetchSkill(skill.repoOwner, skill.repoName, skill.slug);
+
+    // ── Path A: verify-on-load ──────────────────────────────────────────────
+    if (!opts.json) {
+      const manifest = await fetchManifest(full.slug);
+
+      if (manifest) {
+        const verifySpinner = p.spinner();
+        verifySpinner.start('Verifying cryptographic signature…');
+        const crl = await fetchCRL();
+        const crlUrl = `${API_BASE_URL.replace(/\/api\/cli\/?$/, '')}/api/crl`;
+        const result = await verifyWithCRL(manifest.bundle, full.bundleHash ?? '', crlUrl, crl ?? undefined);
+        if (!result.ok) {
+          verifySpinner.stop(chalk.red('  ✗ Verification failed'));
+          printError(mapVerifyFailureReason(result.reason));
+          process.exit(3);
+        }
+        if (result.warning === 'crl_unavailable') {
+          console.log(chalk.yellow('  ⚠  CRL unavailable; proceeding without revocation check'));
+        }
+        const rekorStr = result.rekorLogIndex != null
+          ? chalk.dim(` (Rekor #${result.rekorLogIndex})`)
+          : '';
+        verifySpinner.stop(chalk.green('  ✓ Verified Tier 0 · DV') + chalk.dim(' (SkillsAuth)') + rekorStr);
+      }
+    }
+    // ── end verify-on-load ──────────────────────────────────────────────────
+
     const results = installSkill(full, selectedAgents, finalScope, false, copyMode);
     for (const r of results) {
       if (opts.json) {

@@ -17,6 +17,7 @@ export interface CLISkill {
   stars: number;
   scanStatus: 'clean';
   scannedAt: string | null;
+  bundleHash: string | null;
   files: Array<{ path: string; content: string }>;
 }
 
