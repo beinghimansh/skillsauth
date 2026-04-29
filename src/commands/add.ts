@@ -1,26 +1,14 @@
 import * as p from '@clack/prompts';
 import chalk from 'chalk';
-import cryptoSign from '@skillsai/crypto-sign';
 import { fetchRepo, fetchSkill, fetchManifest, fetchCRL, recordDownload, APIError } from '../lib/api.js';
 import { detectAgents } from '../lib/agents.js';
 import { installSkill } from '../lib/installer.js';
 import { addSkillToLockfile } from '../lib/lockfile.js';
+import { verifyWithCRL } from '../lib/verify.js';
 import { printScanBadge, printError, separator } from '../utils/display.js';
 import { API_BASE_URL, SKIP_PROMPTS, LOCAL_LOCK, GLOBAL_LOCK } from '../utils/constants.js';
 import type { CLISkill, AgentType, InstallScope } from '../types.js';
 import { AGENT_IDS } from '../types.js';
-
-const { verifyWithCRL } = cryptoSign as {
-  verifyWithCRL: (
-    bundleJson: string,
-    localBundleHash: string,
-    crlUrl: string,
-    cachedCRL?: { version: number; revokedDigests: string[]; issuedAt: string }
-  ) => Promise<
-    | { ok: true; rekorLogIndex: number | null; warning?: string }
-    | { ok: false; reason: string; detail?: string }
-  >;
-};
 
 export interface AddOptions {
   global?: boolean;

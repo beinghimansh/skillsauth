@@ -45,10 +45,8 @@ vi.mock("../lib/lockfile.js", () => ({
   addSkillToLockfile: addSkillToLockfileMock,
 }));
 
-vi.mock("@skillsai/crypto-sign", () => ({
-  default: {
-    verifyWithCRL: verifyWithCRLMock,
-  },
+vi.mock("../lib/verify.js", () => ({
+  verifyWithCRL: verifyWithCRLMock,
 }));
 
 describe("add command unsigned behavior", () => {

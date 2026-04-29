@@ -1,5 +1,4 @@
 import { API_BASE_URL, DEBUG, NO_ANALYTICS } from '../utils/constants.js';
-import type { CRLResponse } from '@skillsai/crypto-sign';
 import type { CLISkill, RepoResponse, SearchResponse } from '../types.js';
 
 export class APIError extends Error {
@@ -61,6 +60,12 @@ export interface ManifestResponse {
   manifestDigest: string | null;
   manifestSignedAt: string | null;
   rekorLogIndex: number | null;
+}
+
+export interface CRLResponse {
+  version: number;
+  revokedDigests: string[];
+  issuedAt: string;
 }
 
 let crlCache: CRLResponse | null = null;

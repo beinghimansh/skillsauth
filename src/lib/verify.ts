@@ -9,7 +9,8 @@
 
 import { createVerifier } from 'sigstore';
 import { bundleFromJSON } from '@sigstore/bundle';
-import type { ManifestResponse } from './api.js';
+import { createHash } from 'crypto';
+import type { CRLResponse, ManifestResponse } from './api.js';
 
 export type VerifyOutcome =
   | { ok: true; rekorLogIndex: number | null }
@@ -102,4 +103,83 @@ export async function verifyManifest(
   }
 
   return { ok: true, rekorLogIndex };
+}
+
+export type VerifyWithCRLOutcome =
+  | { ok: true; rekorLogIndex: number | null; warning?: 'crl_unavailable' }
+  | {
+      ok: false;
+      reason:
+        | 'revoked'
+        | 'bundle_hash_mismatch'
+        | 'cert_chain_invalid'
+        | 'rekor_inclusion_fail'
+        | 'schema_invalid'
+        | 'malformed'
+        | 'invalid_sig';
+      detail?: string;
+    };
+
+type VerifyFailureReason = Exclude<VerifyWithCRLOutcome, { ok: true }>['reason'];
+
+export async function verifyWithCRL(
+  bundleJson: string,
+  localBundleHash: string,
+  _crlUrl: string,
+  cachedCRL?: CRLResponse
+): Promise<VerifyWithCRLOutcome> {
+  const manifestResponse: ManifestResponse = {
+    fqn: '',
+    version: '',
+    bundle: bundleJson,
+    manifestDigest: null,
+    manifestSignedAt: null,
+    rekorLogIndex: null,
+  };
+
+  const verified = await verifyManifest(manifestResponse, localBundleHash);
+  if (!verified.ok) {
+    return {
+      ok: false,
+      reason: mapReasonToCode(verified.reason),
+      detail: verified.reason,
+    };
+  }
+
+  if (!cachedCRL) {
+    return { ok: true, rekorLogIndex: verified.rekorLogIndex, warning: 'crl_unavailable' };
+  }
+
+  const digest = computePayloadDigest(bundleJson);
+  if (!digest) {
+    return { ok: false, reason: 'malformed' };
+  }
+  if (cachedCRL.revokedDigests.includes(digest)) {
+    return { ok: false, reason: 'revoked' };
+  }
+
+  return { ok: true, rekorLogIndex: verified.rekorLogIndex };
+}
+
+function computePayloadDigest(bundleJson: string): string | null {
+  try {
+    const raw = JSON.parse(bundleJson) as Record<string, unknown>;
+    const envelope =
+      (raw?.dsseEnvelope ?? (raw as any)?.content?.dsseEnvelope) as { payload?: string } | undefined;
+    if (!envelope?.payload) return null;
+    const payload = Buffer.from(envelope.payload, 'base64');
+    return createHash('sha256').update(payload).digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+function mapReasonToCode(reason: string): VerifyFailureReason {
+  if (/revoked/i.test(reason)) return 'revoked';
+  if (/bundle hash mismatch|tampering/i.test(reason)) return 'bundle_hash_mismatch';
+  if (/certificate chain invalid/i.test(reason)) return 'cert_chain_invalid';
+  if (/transparency log inclusion failed/i.test(reason)) return 'rekor_inclusion_fail';
+  if (/manifest payload schema is invalid|schema/i.test(reason)) return 'schema_invalid';
+  if (/malformed|cannot be parsed|contains no dsse|extract manifest payload/i.test(reason)) return 'malformed';
+  return 'invalid_sig';
 }
